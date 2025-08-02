@@ -8,7 +8,7 @@ const routes = (app) => {
   app.post("/api/urls/shorten", urlController.shortenUrl);
 
   // batch shortens
-  app.post("/shorten/batch", shortenBatch);
+  app.post("/shorten/batch", urlController.shortenBatch);
 
   // Redirect to original URL
   app.get("/api/urls/redirect", urlController.redirectUrl);
