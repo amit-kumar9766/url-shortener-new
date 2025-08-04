@@ -3,28 +3,32 @@ const {
   shortenUrl,
   shortenBatch,
   redirectUrl,
+  deleteUrl,
+  editShortCode,
+  getUserUrls,
 } = require("../../controllers/urlControllers");
 const { mockRequest, mockResponse } = require("./mocker");
-const { Url, User } = require("../../models");
-const { generateShortUrl } = require("../../utils");
 
-// Mock the Url and User models
-jest.mock("../../models", () => ({
-  Url: {
-    findAll: jest.fn(),
-    findOne: jest.fn(),
-    create: jest.fn(),
-  },
-  User: {
-    findOne: jest.fn(),
-  },
+// Mock the service functions
+jest.mock("../../services/urlServices", () => ({
+  fetchLastTenUrlsService: jest.fn(),
+  createShortenedUrlService: jest.fn(),
+  shortenBatchUrlsService: jest.fn(),
+  getUrlByCodeService: jest.fn(),
+  deleteUrlService: jest.fn(),
+  editShortCodeService: jest.fn(),
+  getUserUrlsService: jest.fn(),
 }));
 
-jest.mock("crypto", () => ({
-  randomBytes: jest.fn(() => Buffer.from("abcdef", "hex")),
-}));
-
-jest.mock("../../utils");
+const {
+  fetchLastTenUrlsService,
+  createShortenedUrlService,
+  shortenBatchUrlsService,
+  getUrlByCodeService,
+  deleteUrlService,
+  editShortCodeService,
+  getUserUrlsService,
+} = require("../../services/urlServices");
 
 describe("getLastTenUrls Controller", () => {
   it("should return the last 10 URLs", async () => {
@@ -34,23 +38,19 @@ describe("getLastTenUrls Controller", () => {
       createdAt: new Date(),
     }));
 
-    Url.findAll.mockResolvedValue(mockUrls);
+    fetchLastTenUrlsService.mockResolvedValue(mockUrls);
 
     const req = mockRequest();
     const res = mockResponse();
 
     await getLastTenUrls(req, res);
 
-    expect(Url.findAll).toHaveBeenCalledWith({
-      order: [["createdAt", "DESC"]],
-      limit: 10,
-      attributes: ["originalUrl", "shortCode", "createdAt"],
-    });
+    expect(fetchLastTenUrlsService).toHaveBeenCalled();
     expect(res.json).toHaveBeenCalledWith(mockUrls);
   });
 
   it("should handle errors and return 500", async () => {
-    Url.findAll.mockRejectedValue(new Error("DB error"));
+    fetchLastTenUrlsService.mockRejectedValue(new Error("DB error"));
 
     const req = mockRequest();
     const res = mockResponse();
@@ -63,21 +63,11 @@ describe("getLastTenUrls Controller", () => {
 });
 
 describe("shortenUrl Controller", () => {
-  const mockDateNow = new Date("2025-01-01T00:00:00Z").getTime();
-
-  beforeAll(() => {
-    jest.spyOn(global.Date, "now").mockImplementation(() => mockDateNow);
-  });
-
-  afterAll(() => {
-    jest.restoreAllMocks();
-  });
-
   it("should return 400 if URL is missing", async () => {
     const req = mockRequest();
     const res = mockResponse();
     req.body = {};
-    req.headers = { api_key: "123" };
+    req.user = { id: 1 };
 
     await shortenUrl(req, res);
 
@@ -85,149 +75,54 @@ describe("shortenUrl Controller", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Missing or empty URL" });
   });
 
-  it("should return 401 if API key is missing", async () => {
+  it("should return 201 for new URL creation", async () => {
     const req = mockRequest();
     const res = mockResponse();
     req.body = { url: "https://example.com" };
-    req.headers = {};
+    req.user = { id: 1 };
 
-    await shortenUrl(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ error: "API key required" });
-  });
-
-  it("should return 403 if API key is invalid", async () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    req.body = { url: "https://example.com" };
-    req.headers = { api_key: "invalid" };
-
-    User.findOne.mockResolvedValue(null);
-
-    await shortenUrl(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({ error: "Invalid API key" });
-  });
-
-  it("should return existing short URL if already shortened", async () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    req.body = { url: "https://example.com" };
-    req.headers = { api_key: "validKey" };
-
-    User.findOne.mockResolvedValue({ id: 1 });
-    Url.findOne.mockResolvedValue({ shortUrl: "abc123" });
-
-    await shortenUrl(req, res);
-
-    expect(res.json).toHaveBeenCalledWith({ shortUrl: "abc123" });
-  });
-
-  it("should create a new short URL if not found", async () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    req.body = { url: "https://example.com" };
-    req.headers = { api_key: "validKey" };
-
-    User.findOne.mockResolvedValue({ id: 1 });
-    Url.findOne.mockResolvedValue(null);
-    Url.create.mockResolvedValue({ shortUrl: "abcdef" });
-
-    await shortenUrl(req, res);
-
-    expect(Url.create).toHaveBeenCalledWith({
-      originalUrl: "https://example.com",
-      shortUrl: "abcdef",
-      userId: 1,
-      expiryDate: null,
+    createShortenedUrlService.mockResolvedValue({
+      reused: false,
+      shortCode: "abc123"
     });
-    expect(res.json).toHaveBeenCalledWith({ shortUrl: "abcdef" });
-  });
-
-  it("should create with expiry date if provided", async () => {
-    const req = mockRequest();
-    const res = mockResponse();
-    const expiry = new Date("2025-12-01T00:00:00.000Z").toISOString();
-
-    req.body = { url: "https://example.com", expiryDate: expiry };
-    req.headers = { api_key: "validKey" };
-
-    User.findOne.mockResolvedValue({ id: 1 });
-    Url.findOne.mockResolvedValue(null);
-    Url.create.mockResolvedValue({ shortUrl: "abcdef" });
 
     await shortenUrl(req, res);
 
-    expect(Url.create).toHaveBeenCalledWith({
-      originalUrl: "https://example.com",
-      shortUrl: "abcdef",
-      userId: 1,
-      expiryDate: new Date(expiry),
-    });
-    expect(res.json).toHaveBeenCalledWith({ shortUrl: "abcdef" });
-  });
-
-  it("should return 409 if customCode already exists", async () => {
-    const req = mockRequest();
-    const res = mockResponse();
-
-    req.body = {
+    expect(createShortenedUrlService).toHaveBeenCalledWith({
       url: "https://example.com",
-      customCode: "mycode",
-    };
-    req.headers = { api_key: "validKey" };
-
-    User.findOne.mockResolvedValue({ id: 1 });
-    Url.findOne
-      .mockResolvedValueOnce(null) // no existing original URL
-      .mockResolvedValueOnce({ shortUrl: "mycode" }); // custom code exists
-
-    await shortenUrl(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith({
-      error: "Custom short code already in use",
+      customCode: undefined,
+      expiryDate: undefined,
+      user: { id: 1 }
     });
+    expect(res.status).toHaveBeenCalledWith(201);
+    expect(res.json).toHaveBeenCalledWith({ shortCode: "abc123" });
   });
 
-  it("should create short URL using provided customCode", async () => {
+  it("should return 200 for reused URL", async () => {
     const req = mockRequest();
     const res = mockResponse();
-
-    req.body = {
-      url: "https://example.com",
-      customCode: "custom123",
-    };
-    req.headers = { api_key: "validKey" };
-
-    User.findOne.mockResolvedValue({ id: 1 });
-    Url.findOne
-      .mockResolvedValueOnce(null) // no original URL
-      .mockResolvedValueOnce(null); // customCode not used
-    Url.create.mockResolvedValue({ shortUrl: "custom123" });
-
-    await shortenUrl(req, res);
-
-    expect(Url.create).toHaveBeenCalledWith({
-      originalUrl: "https://example.com",
-      shortUrl: "custom123",
-      userId: 1,
-      expiryDate: null,
-    });
-
-    expect(res.json).toHaveBeenCalledWith({ shortUrl: "custom123" });
-  });
-
-  it("should return 500 on unexpected error", async () => {
-    const req = mockRequest();
-    const res = mockResponse();
-
     req.body = { url: "https://example.com" };
-    req.headers = { api_key: "validKey" };
+    req.user = { id: 1 };
 
-    User.findOne.mockRejectedValue(new Error("Unexpected error"));
+    createShortenedUrlService.mockResolvedValue({
+      reused: true,
+      shortCode: "abc123"
+    });
+
+    await shortenUrl(req, res);
+
+    expect(res.json).toHaveBeenCalledWith({ 
+      shortCode: "abc123"
+    });
+  });
+
+  it("should handle service errors", async () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    req.body = { url: "https://example.com" };
+    req.user = { id: 1 };
+
+    createShortenedUrlService.mockRejectedValue(new Error("Service error"));
 
     await shortenUrl(req, res);
 
@@ -236,83 +131,61 @@ describe("shortenUrl Controller", () => {
   });
 });
 
-describe("shortenBatch controller", () => {
-  it("should return 400 if urls array is missing or empty", async () => {
+describe("shortenBatch Controller", () => {
+  it("should return batch results successfully", async () => {
     const req = mockRequest();
-    req.body = {}; // urls is missing
-    req.headers = { api_key: "validKey" };
     const res = mockResponse();
+    req.body = { urls: [{ url: "https://example.com" }] };
+    req.user = { id: 1 };
+
+    shortenBatchUrlsService.mockResolvedValue({
+      results: [{ url: "https://example.com", shortCode: "abc123" }]
+    });
+
+    await shortenBatch(req, res);
+
+    expect(shortenBatchUrlsService).toHaveBeenCalledWith({
+      urls: [{ url: "https://example.com" }],
+      user: { id: 1 }
+    });
+    expect(res.json).toHaveBeenCalledWith({
+      results: [{ url: "https://example.com", shortCode: "abc123" }]
+    });
+  });
+
+  it("should handle service errors", async () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    req.body = { urls: [{ url: "https://example.com" }] };
+    req.user = { id: 1 };
+
+    shortenBatchUrlsService.mockResolvedValue({
+      error: "Invalid URLs array",
+      status: 400
+    });
 
     await shortenBatch(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
-      error: "Provide a non-empty URLs array",
-    });
+    expect(res.json).toHaveBeenCalledWith({ error: "Invalid URLs array" });
   });
 
-  it("should return 403 if API key is invalid", async () => {
+  it("should handle unexpected errors", async () => {
     const req = mockRequest();
+    const res = mockResponse();
     req.body = { urls: [{ url: "https://example.com" }] };
-    req.headers = { api_key: "invalidKey" };
-    const res = mockResponse();
+    req.user = { id: 1 };
 
-    User.findOne.mockResolvedValue(null); // simulate invalid API key
-
-    await shortenBatch(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({
-      error: "Invalid API key",
-    });
-  });
-
-  it("should return 403 if user is not enterprise tier", async () => {
-    const req = mockRequest();
-    req.body = { urls: [{ url: "https://example.com" }] };
-    req.headers = { api_key: "validKey" };
-    const res = mockResponse();
-
-    User.findOne.mockResolvedValue({ id: 1, tier: "free" }); // Not enterprise
+    shortenBatchUrlsService.mockRejectedValue(new Error("Unexpected error"));
 
     await shortenBatch(req, res);
 
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({
-      error: "Bulk URL shortening is available for enterprise users only",
-    });
-  });
-
-  it("should return shortUrl for each valid URL and error for failures", async () => {
-    const req = mockRequest();
-    req.body = {
-      urls: [{ url: "https://example.com" }, { url: "https://fail.com" }],
-    };
-    req.headers = { api_key: "enterpriseKey" };
-    const res = mockResponse();
-
-    User.findOne.mockResolvedValue({ id: 1, tier: "enterprise" });
-
-    generateShortUrl
-      .mockResolvedValueOnce({ shortUrl: "abc123" }) // success
-      .mockRejectedValueOnce(new Error("fail")); // failure
-
-    await shortenBatch(req, res);
-
-    expect(res.json).toHaveBeenCalledWith({
-      results: [
-        { url: "https://example.com", shortUrl: "abc123" },
-        { url: "https://fail.com", error: "Failed to shorten" },
-      ],
-    });
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Internal server error" });
   });
 });
 
 describe("redirectUrl Controller", () => {
-  beforeEach(() => {
-    Url.findOne.mockReset();
-  });
-
   it("should return 400 if code is missing", async () => {
     const req = mockRequest({ query: {} });
     const res = mockResponse();
@@ -323,10 +196,38 @@ describe("redirectUrl Controller", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Missing code parameter" });
   });
 
-  it("should return 404 if short code is not found", async () => {
-    Url.findOne.mockResolvedValue(null);
-    const req = mockRequest({ query: { code: "notfound" } });
+  it("should return 400 if password is missing", async () => {
+    const req = mockRequest({ query: { code: "abc123" } });
     const res = mockResponse();
+
+    await redirectUrl(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Missing password parameter" });
+  });
+
+  it("should return original URL successfully", async () => {
+    const req = mockRequest({ query: { code: "abc123", password: "secret" } });
+    const res = mockResponse();
+
+    getUrlByCodeService.mockResolvedValue("https://example.com");
+
+    await redirectUrl(req, res);
+
+    expect(getUrlByCodeService).toHaveBeenCalledWith({
+      code: "abc123",
+      password: "secret"
+    });
+    expect(res.json).toHaveBeenCalledWith({ url: "https://example.com" });
+  });
+
+  it("should handle service errors with status", async () => {
+    const req = mockRequest({ query: { code: "abc123" } });
+    const res = mockResponse();
+
+    const error = new Error("Short code not found");
+    error.status = 404;
+    getUrlByCodeService.mockRejectedValue(error);
 
     await redirectUrl(req, res);
 
@@ -334,100 +235,138 @@ describe("redirectUrl Controller", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Short code not found" });
   });
 
-  it("should return 410 if short code is expired", async () => {
-    Url.findOne.mockResolvedValue({
-      shortUrl: "abc",
-      expiryDate: new Date(Date.now() - 10000), // expired
-    });
-
-    const req = mockRequest({ query: { code: "abc" } });
-    const res = mockResponse();
-
-    await redirectUrl(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(410);
-    expect(res.json).toHaveBeenCalledWith({ error: "Short URL has expired" });
-  });
-
-  it("should return 403 if password is required but not provided", async () => {
-    Url.findOne.mockResolvedValue({
-      shortUrl: "abc",
-      originalUrl: "https://secret.com",
-      password: "secret",
-      expiryDate: null,
-    });
-
-    const req = mockRequest({ query: { code: "abc" } }); // no password
-    const res = mockResponse();
-
-    await redirectUrl(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({
-      error: "Incorrect or missing password",
-    });
-  });
-
-  it("should return 403 if incorrect password is provided", async () => {
-    Url.findOne.mockResolvedValue({
-      shortUrl: "abc",
-      originalUrl: "https://secret.com",
-      password: "secret",
-      expiryDate: null,
-    });
-
-    const req = mockRequest({ query: { code: "abc", password: "wrong" } });
-    const res = mockResponse();
-
-    await redirectUrl(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith({
-      error: "Incorrect or missing password",
-    });
-  });
-
-  it("should return the original URL if everything is valid", async () => {
-    Url.findOne.mockResolvedValue({
-      shortUrl: "abc",
-      originalUrl: "https://valid.com",
-      password: "letmein",
-      expiryDate: new Date(Date.now() + 10000),
-    });
-
-    const req = mockRequest({ query: { code: "abc", password: "letmein" } });
-    const res = mockResponse();
-
-    await redirectUrl(req, res);
-
-    expect(res.json).toHaveBeenCalledWith({ url: "https://valid.com" });
-  });
-
-  it("should return original URL even if no password is set", async () => {
-    Url.findOne.mockResolvedValue({
-      shortUrl: "public",
-      originalUrl: "https://public.com",
-      password: null,
-      expiryDate: null,
-    });
-
-    const req = mockRequest({ query: { code: "public" } });
-    const res = mockResponse();
-
-    await redirectUrl(req, res);
-
-    expect(res.json).toHaveBeenCalledWith({ url: "https://public.com" });
-  });
-
   it("should handle unexpected errors", async () => {
-    Url.findOne.mockRejectedValue(new Error("Unexpected"));
-
-    const req = mockRequest({ query: { code: "oops" } });
+    const req = mockRequest({ query: { code: "abc123" } });
     const res = mockResponse();
+
+    getUrlByCodeService.mockRejectedValue(new Error("Unexpected error"));
 
     await redirectUrl(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "Server error" });
+    expect(res.json).toHaveBeenCalledWith({ error: "Unexpected error" });
+  });
+});
+
+describe("deleteUrl Controller", () => {
+  it("should return 400 if code is missing", async () => {
+    const req = mockRequest({ params: {} });
+    const res = mockResponse();
+    req.user = { id: 1 };
+
+    await deleteUrl(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Missing URL code" });
+  });
+
+  it("should delete URL successfully", async () => {
+    const req = mockRequest({ params: { code: "abc123" } });
+    const res = mockResponse();
+    req.user = { id: 1 };
+
+    deleteUrlService.mockResolvedValue();
+
+    await deleteUrl(req, res);
+
+    expect(deleteUrlService).toHaveBeenCalledWith({
+      code: "abc123",
+      userId: 1
+    });
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith({ message: "URL deleted successfully" });
+  });
+
+  it("should handle service errors", async () => {
+    const req = mockRequest({ params: { code: "abc123" } });
+    const res = mockResponse();
+    req.user = { id: 1 };
+
+    const error = new Error("URL not found");
+    error.status = 404;
+    deleteUrlService.mockRejectedValue(error);
+
+    await deleteUrl(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+    expect(res.json).toHaveBeenCalledWith({ error: "URL not found" });
+  });
+});
+
+describe("editShortCode Controller", () => {
+  it("should update short code successfully", async () => {
+    const req = mockRequest({
+      params: { shortCode: "abc123" },
+      body: { expiryDate: "2025-12-31" }
+    });
+    const res = mockResponse();
+    req.user = { id: 1 };
+
+    editShortCodeService.mockResolvedValue({
+      message: "Short code updated",
+      shortCode: "abc123"
+    });
+
+    await editShortCode(req, res);
+
+    expect(editShortCodeService).toHaveBeenCalledWith({
+      shortCode: "abc123",
+      expiryDate: "2025-12-31",
+      user: { id: 1 }
+    });
+    expect(res.json).toHaveBeenCalledWith({
+      message: "Short code updated",
+      newShortCode: {
+        message: "Short code updated",
+        shortCode: "abc123"
+      }
+    });
+  });
+
+  it("should handle service errors", async () => {
+    const req = mockRequest({
+      params: { shortCode: "abc123" },
+      body: { expiryDate: "2025-12-31" }
+    });
+    const res = mockResponse();
+    req.user = { id: 1 };
+
+    editShortCodeService.mockRejectedValue(new Error("Service error"));
+
+    await editShortCode(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Service error" });
+  });
+});
+
+describe("getUserUrls Controller", () => {
+  it("should return user URLs successfully", async () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    req.user = { id: 1 };
+
+    const mockUrls = [
+      { originalUrl: "https://example.com", shortCode: "abc123" }
+    ];
+    getUserUrlsService.mockResolvedValue(mockUrls);
+
+    await getUserUrls(req, res);
+
+    expect(getUserUrlsService).toHaveBeenCalledWith({ id: 1 });
+    expect(res.json).toHaveBeenCalledWith({ urls: mockUrls });
+  });
+
+  it("should handle service errors", async () => {
+    const req = mockRequest();
+    const res = mockResponse();
+    req.user = { id: 1 };
+
+    getUserUrlsService.mockRejectedValue(new Error("Service error"));
+
+    await getUserUrls(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Internal server error" });
   });
 });

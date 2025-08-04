@@ -6,8 +6,8 @@ function mockResponse() {
   return res;
 }
 
-function mockRequest({ body = {}, params = {}, query = {} } = {}) {
-  return { body, params, query };
+function mockRequest({ body = {}, params = {}, query = {}, headers = {} } = {}) {
+  return { body, params, query, headers };
 }
 
 module.exports = {

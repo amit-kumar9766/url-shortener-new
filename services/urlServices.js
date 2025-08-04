@@ -37,7 +37,9 @@ exports.createShortenedUrlService = async ({
   if (customCode) {
     const conflict = await Url.findOne({ where: { shortCode: customCode } });
     if (conflict) {
-      throw { status: 409, message: "Custom short code already in use" };
+      const error = new Error("Custom short code already in use");
+      error.status = 409;
+      throw error;
     }
     shortCode = customCode;
   } else {
