@@ -18,7 +18,7 @@ app.get("/", (req, res) => {
 });
 
 // routing
-routes(app);
+app.use("/v1", routes);
 
 // DB connection test
 sequelize

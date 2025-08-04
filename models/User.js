@@ -19,6 +19,11 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: false,
       },
+      plan: {
+        type: DataTypes.ENUM("free", "pro", "enterprise"),
+        allowNull: false,
+        defaultValue: "free",
+      },
     },
     {}
   );
