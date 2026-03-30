@@ -1,6 +1,6 @@
 name: Pushing to main branch
 
-on:             
+on:
   push:
     branches:
       - main
@@ -10,10 +10,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Cache NPM dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: npm-cache
+          restore-keys: npm-cache
+
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
           node-version: latest
-      - run: npm install
+      - name: install dependencies
+        run: npm install
       - run: npm run build --if-present
- 
