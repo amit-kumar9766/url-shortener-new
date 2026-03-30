@@ -222,7 +222,7 @@ describe("redirectUrl Controller", () => {
   });
 
   it("should handle service errors with status", async () => {
-    const req = mockRequest({ query: { code: "abc123" } });
+    const req = mockRequest({ query: { code: "abc123", password: "secret" } });
     const res = mockResponse();
 
     const error = new Error("Short code not found");
@@ -236,7 +236,7 @@ describe("redirectUrl Controller", () => {
   });
 
   it("should handle unexpected errors", async () => {
-    const req = mockRequest({ query: { code: "abc123" } });
+    const req = mockRequest({ query: { code: "abc123", password: "secret" } });
     const res = mockResponse();
 
     getUrlByCodeService.mockRejectedValue(new Error("Unexpected error"));

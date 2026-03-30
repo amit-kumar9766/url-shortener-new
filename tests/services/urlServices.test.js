@@ -1,3 +1,17 @@
+// Mock the models BEFORE importing services
+jest.mock("../../models", () => ({
+  Url: {
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+  },
+  User: {
+    findOne: jest.fn(),
+  },
+  sequelize: {},
+  Sequelize: {},
+}));
+
 const {
   fetchLastTenUrlsService,
   createShortenedUrlService,
@@ -9,9 +23,6 @@ const {
 } = require("../../services/urlServices");
 
 const { Url, User } = require("../../models");
-
-// Mock the models
-jest.mock("../../models");
 
 describe("URL Services", () => {
   beforeEach(() => {
