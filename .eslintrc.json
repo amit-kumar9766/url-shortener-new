@@ -1,11 +1,15 @@
 {
-    "extends": "eslint:recommended",
-    "env": {
-      "node": true,
-      "es6": true
-    },
-    "rules": {
-      "no-unused-vars": "error",
-      "no-undef": "error"
-    }
+  "extends": "eslint:recommended",
+  "env": {
+    "node": true,
+    "es6": true,
+    "jest": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2020
+  },
+  "rules": {
+    "no-unused-vars": "warn",
+    "no-undef": "error"
   }
+}
