@@ -10,7 +10,9 @@
     "start": "node server.js",
     "test": "jest",
     "lint": "eslint .",
-    "coverage": "jest --coverage"
+    "coverage": "jest --coverage",
+    "migrate": "npx sequelize-cli db:migrate",
+    "migrate:undo": "npx sequelize-cli db:migrate:undo"
   },
   "dependencies": {
     "@sentry/node": "^10.0.0",
@@ -25,5 +27,15 @@
     "jest": "^30.0.5",
     "sequelize-cli": "^6.6.3",
     "supertest": "^7.1.4"
+  },
+  "jest": {
+    "coverageThreshold": {
+      "global": {
+        "lines": 50,
+        "functions": 50,
+        "branches": 50,
+        "statements": 50
+      }
+    }
   }
 }

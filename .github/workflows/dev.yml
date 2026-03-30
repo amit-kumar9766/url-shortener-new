@@ -29,4 +29,4 @@ jobs:
       - name: test
         run: npm run test --if-present
       - name: coverage
-        run: jest --coverage
+        run: npx jest --coverage
