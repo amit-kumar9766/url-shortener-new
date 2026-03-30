@@ -9,7 +9,8 @@
   "scripts": {
     "start": "node server.js",
     "test": "jest",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "coverage": "jest --coverage"
   },
   "dependencies": {
     "@sentry/node": "^10.0.0",
