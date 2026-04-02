@@ -149,6 +149,18 @@ describe("URL Services", () => {
   describe("shortenBatchUrlsService", () => {
     const mockUser = { id: 1 };
 
+    it("should return error when urls is not an array", async () => {
+      const result = await shortenBatchUrlsService({
+        urls: null,
+        user: mockUser,
+      });
+
+      expect(result).toEqual({
+        error: "Provide a non-empty URLs array",
+        status: 400,
+      });
+    });
+
     it("should return error for empty URLs array", async () => {
       const result = await shortenBatchUrlsService({ urls: [], user: mockUser });
 

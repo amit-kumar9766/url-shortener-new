@@ -38,6 +38,7 @@ jobs:
       - name: coverage
         run: npx jest --coverage
       - uses: kcjpop/coverage-comments@v2.2
+        if: github.event_name == 'pull_request' 
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           coverage-file: "coverage/lcov.info"
