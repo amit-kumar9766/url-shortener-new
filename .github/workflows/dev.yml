@@ -4,17 +4,24 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main 
+
+permissions:
+      contents: read
+      pull-requests: write
 
 jobs:
   job1:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       - name: Cache NPM dependencies
         uses: actions/cache@v3
         with:
           path: ~/.npm
-          key: npm-cache
+          key: npm-cache-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
           restore-keys: npm-cache
 
       - name: Use Node.js
@@ -30,3 +37,7 @@ jobs:
         run: npm run test --if-present
       - name: coverage
         run: npx jest --coverage
+      - uses: kcjpop/coverage-comments@v2.2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          coverage-file: "coverage/lcov.info"

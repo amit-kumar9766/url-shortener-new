@@ -35,5 +35,10 @@
         "statements": 50
       }
     }
-  }
+  },
+  "coverageReporters": [
+    "text",
+    "json-summary",
+    "lcov"
+  ]
 }
