@@ -1,5 +1,4 @@
 const express = require("express");
-const bodyParser = require("body-parser");
 require("dotenv").config();
 const { sequelize } = require("./models");
 const routes = require("./routes/urlRoutes");
@@ -9,8 +8,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middlewares
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Example Routes
 app.get("/", (req, res) => {

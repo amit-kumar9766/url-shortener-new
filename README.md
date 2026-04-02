@@ -133,6 +133,21 @@ All endpoints return appropriate HTTP status codes:
 npm test
 ```
 
+## Deploy on Render
+
+1. Create a **Web Service** from this repository.
+2. Set:
+   - **Build Command**: `npm install`
+   - **Start Command**: `npm start`
+3. Create a PostgreSQL database (Render Postgres or Neon).
+4. Add environment variables in Render service settings:
+   - `NODE_ENV=production`
+   - `DATABASE_URL=<your_postgres_connection_string>`
+5. Run migrations after first deploy:
+   ```bash
+   npx sequelize-cli db:migrate
+   ```
+
 ## Project Structure
 
 ```
