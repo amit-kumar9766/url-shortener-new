@@ -28,16 +28,13 @@ jobs:
           LIMIT 10;
           SQL
           )
+
+          if [ -z "$REPORT" ]; then
+            REPORT="No links shortened in last 24 hours."
+          fi
+
           TEXT="Top links (24h)\n${REPORT}"
-          python3 - "$SLACK_WEBHOOK_URL" "$TEXT" <<'PY'
-          import json, sys, urllib.request
-          url, text = sys.argv[1], sys.argv[2]
-          body = json.dumps({"text": text}).encode()
-          req = urllib.request.Request(
-              url,
-              data=body,
-              headers={"Content-Type": "application/json"},
-              method="POST",
-          )
-          urllib.request.urlopen(req)
-          PY
+
+          curl -f -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-type: application/json" \
+            -d "{\"text\":\"${TEXT//$'\n'/\\n}\"}"
