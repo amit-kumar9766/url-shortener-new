@@ -1,43 +1,41 @@
 name: Daily Top Links
 
 on:
-  push:
-    branches:
-      - main
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 jobs:
   report:
     runs-on: ubuntu-latest
-    env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
     steps:
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Use Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
 
-      - name: Query top links and post to Slack
+      - name: Install pg
+        run: npm install pg
+
+      - name: Debug tables
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          REPORT=$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -A <<'SQL'
-          SELECT format('%s - %s shortenings', "originalUrl", count(*)::text)
-          FROM urls
-          WHERE "createdAt" >= NOW() - INTERVAL '24 hours'
-            AND "deletedAt" IS NULL
-          GROUP BY "originalUrl"
-          ORDER BY count(*) DESC
-          LIMIT 10;
-          SQL
-          )
+          node --input-type=module - <<'JS'
+          import pkg from 'pg';
+          const { Client } = pkg;
 
-          if [ -z "$REPORT" ]; then
-            REPORT="No links shortened in last 24 hours."
-          fi
+          const client = new Client({
+            connectionString: process.env.DATABASE_URL,
+            ssl: { rejectUnauthorized: false }
+          });
+          await client.connect();
 
-          TEXT="Top links (24h)\n${REPORT}"
+          const { rows } = await client.query(
+            `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`
+          );
 
-          curl -f -X POST "$SLACK_WEBHOOK_URL" \
-            -H "Content-type: application/json" \
-            -d "{\"text\":\"${TEXT//$'\n'/\\n}\"}"
+          console.log("Tables:", rows.map(r => r.table_name));
+          await client.end();
+          JS

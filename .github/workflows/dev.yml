@@ -62,13 +62,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           coverage-file: "coverage/lcov.info"
 
-      - name: Notify Slack on failure
-        if: failure()
+      - name: Notify Slack on success
+        if: success()
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           curl -X POST "$SLACK_WEBHOOK_URL" \
             -H "Content-type: application/json" \
             -d '{
-              "text": "Build failed\nRepo: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nAuthor: ${{ github.actor }}\nCommit: ${{ github.sha }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+              "text": "Build success\nRepo: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nAuthor: ${{ github.actor }}\nCommit: ${{ github.sha }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }'

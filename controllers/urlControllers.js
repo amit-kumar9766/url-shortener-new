@@ -13,6 +13,7 @@ exports.getLastTenUrls = async (_, res) => {
     const urls = await fetchLastTenUrlsService();
     res.json(urls);
   } catch (err) {
+    console.error("[getLastTenUrls]", err);
     res.status(500).json({ error: "Internal server error" });
   }
 };
