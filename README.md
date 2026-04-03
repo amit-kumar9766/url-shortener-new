@@ -148,6 +148,29 @@ npm test
    npx sequelize-cli db:migrate
    ```
 
+## Daily Top Links Report
+
+A scheduled GitHub Actions workflow sends a daily top-links report to Slack/Discord/Teams.
+
+- Workflow: `.github/workflows/daily-top-links.yml`
+- Schedule: daily at `03:00 UTC` (cron)
+- Manual trigger: `workflow_dispatch`
+
+The report currently ranks links by most frequently shortened `originalUrl` values in the last 24 hours.
+
+### Required GitHub secrets
+
+- `DATABASE_URL`
+- At least one of:
+  - `SLACK_WEBHOOK_URL`
+  - `DISCORD_WEBHOOK_URL`
+  - `TEAMS_WEBHOOK_URL`
+
+### Optional GitHub repository variables
+
+- `TOP_LINKS_LIMIT` (default `10`)
+- `TOP_LINKS_LOOKBACK_HOURS` (default `24`)
+
 ## Project Structure
 
 ```
