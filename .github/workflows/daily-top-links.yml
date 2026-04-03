@@ -20,7 +20,7 @@ jobs:
         run: |
           REPORT=$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -A <<'SQL'
           SELECT format('%s - %s shortenings', "originalUrl", count(*)::text)
-          FROM "Urls"
+          FROM urls
           WHERE "createdAt" >= NOW() - INTERVAL '24 hours'
             AND "deletedAt" IS NULL
           GROUP BY "originalUrl"
