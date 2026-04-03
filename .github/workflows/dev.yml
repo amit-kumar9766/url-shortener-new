@@ -64,14 +64,11 @@ jobs:
 
       - name: Notify Slack on failure
         if: failure()
-        uses: slackapi/slack-github-action@v1.24.0
-        with:
-          channel-id: ${{ secrets.SLACK_CHANNEL_ID }}
-          slack-message: |
-            Repo: ${{ github.repository }}
-            Branch: ${{ github.ref_name }}
-            Author: ${{ github.actor }}
-            Commit: ${{ github.sha }}
-            Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
         env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-type: application/json" \
+            -d '{
+              "text": "Build failed\nRepo: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nAuthor: ${{ github.actor }}\nCommit: ${{ github.sha }}\nRun: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }'
