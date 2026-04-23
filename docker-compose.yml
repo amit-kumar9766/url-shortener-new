@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16
+    container_name: postgres
+    environment:
+      POSTGRES_USER: mac
+      POSTGRES_PASSWORD: mac
+      POSTGRES_DB: banking
+    ports:
+      - "5432:5432"
+
+  node:
+    build: .
+    container_name: url-shortener-node
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: mac
+      DB_PASS: mac        
+      DB_NAME: banking
+      NODE_ENV: development
